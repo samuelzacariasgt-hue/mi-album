@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Mi Álbum</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      min-height: 100vh;
+    }
+
+    .album {
+      width: min(100%, 900px);
+      margin: auto;
+      padding: 40px 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-size: 42px;
+      margin: 0 0 10px;
+      letter-spacing: 3px;
+    }
+
+    .header p {
+      color: #aaa;
+      margin: 0;
+    }
+
+    .progress {
+      margin: 25px auto 0;
+      max-width: 400px;
+    }
+
+    .progress-text {
+      font-size: 14px;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 7px;
+      background: #333;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: white;
+      transition: width 0.6s ease;
+    }
+
+    .songs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .song {
+      position: relative;
+      min-height: 210px;
+      border: 1px solid #333;
+      border-radius: 18px;
+      padding: 25px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: #191919;
+      transition: transform 0.3s ease, border 0.3s ease;
+    }
+
+    .song.unlocked {
+      border-color: #777;
+    }
+
+    .song:hover {
+      transform: translateY(-4px);
+    }
+
+    .number {
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 12px;
+    }
+
+    .lock {
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+
+    .song-name {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .artist {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 18px;
+    }
+
+    .spotify {
+      display: inline-block;
+      text-decoration: none;
+      color: #111;
+      background: white;
+      padding: 11px 18px;
+      border-radius: 30px;
+      font-weight: bold;
+      font-size: 14px;
+      transition: transform 0.2s ease;
+    }
+
+    .spotify:hover {
+      transform: scale(1.05);
+    }
+
+    .locked-text {
+      color: #777;
+      font-size: 13px;
+    }
+
+    /* Animación de desbloqueo */
+
+    .unlock-animation {
+      animation: unlock 0.8s ease;
+    }
+
+    @keyframes unlock {
+      0% {
+        transform: scale(0.85);
+        opacity: 0;
+      }
+
+      50% {
+        transform: scale(1.08);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .flash {
+      animation: flash 0.8s ease;
+    }
+
+    @keyframes flash {
+      0% {
+        box-shadow: 0 0 0 rgba(255,255,255,0);
+      }
+
+      50% {
+        box-shadow: 0 0 35px rgba(255,255,255,0.35);
+      }
+
+      100% {
+        box-shadow: 0 0 0 rgba(255,255,255,0);
+      }
+    }
+
+    .message {
+      position: fixed;
+      left: 50%;
+      bottom: 25px;
+      transform: translateX(-50%);
+      background: white;
+      color: #111;
+      padding: 14px 22px;
+      border-radius: 30px;
+      font-weight: bold;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 1000;
+    }
+
+    .message.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-8px);
+    }
+
+    @media (max-width: 700px) {
+      .songs {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .header h1 {
+        font-size: 32px;
+      }
+    }
+
+    @media (max-width: 450px) {
+      .songs {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="album">
+
+    <header class="header">
+      <h1>MI ÁLBUM</h1>
+      <p>Escanea los códigos para descubrir las canciones.</p>
+
+      <div class="progress">
+        <div class="progress-text" id="progressText">
+          0 de 9 canciones desbloqueadas
+        </div>
+
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </header>
+
+    <section class="songs" id="songs"></section>
+
+  </main>
+
+  <div class="message" id="message"></div>
+
+  <script>
+
+    /*
+      ==========================================
+      LISTA DE CANCIONES
+      ==========================================
+
+      Para agregar canciones en el futuro,
+      simplemente agrega otro objeto debajo.
+
+      Ejemplo:
+
+      {
+        name: "Nueva canción",
+        artist: "Artista",
+        spotify: "https://open.spotify.com/track/..."
+      }
+
+    */
+
+    const songs = [
+
+      {
+        name: "Canción 1",
+        artist: "Artista 1",
+        spotify: "https://open.spotify.com/track/1OcpRD3d7YBuGlIxPYQHsd"
+      },
+
+      {
+        name: "Canción 2",
+        artist: "Artista 2",
+        spotify: "https://open.spotify.com/track/4dTlKFV3AXkPbC8RUWjdIz"
+      },
+
+      {
+        name: "Canción 3",
+        artist: "Artista 3",
+        spotify: "https://open.spotify.com/track/3k3NWokhRRkEPhCzPmV8TW"
+      },
+
+      {
+        name: "Canción 4",
+        artist: "Artista 4",
+        spotify: "https://open.spotify.com/track/0bRo3KV2Ocmpa7N6HWEyiH"
+      },
+
+      {
+        name: "Canción 5",
+        artist: "Artista 5",
+        spotify: "https://open.spotify.com/track/3RauwC9sLKjxVN7uNw0vAH"
+      },
+
+      {
+        name: "Canción 6",
+        artist: "Artista 6",
+        spotify: "https://open.spotify.com/track/3arQDLbkZnujJVfhoyEDlM"
+      },
+
+      {
+        name: "Canción 7",
+        artist: "Artista 7",
+        spotify: "https://open.spotify.com/track/31VOknKjFrEX47bZXzqcoF"
+      },
+
+      {
+        name: "Canción 8",
+        artist: "Artista 8",
+        spotify: "https://open.spotify.com/track/3hMvsYZjU1pFH0xoywKXA9"
+      },
+
+      {
+        name: "Canción 9",
+        artist: "Artista 9",
+        spotify: "https://open.spotify.com/track/4wtWL0UV8tCPv9VbUMLXYP"
+      }
+
+    ];
+
+
+    /*
+      ==========================================
+      SISTEMA DE DESBLOQUEO
+      ==========================================
+    */
+
+    const storageKey = "miAlbumDesbloqueadas";
+
+    let unlocked = JSON.parse(
+      localStorage.getItem(storageKey) || "[]"
+    );
+
+
+    function saveUnlocked() {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify(unlocked)
+      );
+    }
+
+
+    function showMessage(text) {
+
+      const message = document.getElementById("message");
+
+      message.textContent = text;
+      message.classList.add("show");
+
+      setTimeout(() => {
+        message.classList.remove("show");
+      }, 2500);
+    }
+
+
+    function unlockSong(number) {
+
+      if (number < 1 || number > songs.length) {
+        return;
+      }
+
+      if (!unlocked.includes(number)) {
+
+        unlocked.push(number);
+
+        saveUnlocked();
+
+        showMessage(
+          "✨ ¡Canción " + number + " desbloqueada!"
+        );
+      }
+
+      renderSongs(number);
+    }
+
+
+    function renderSongs(newlyUnlocked = null) {
+
+      const container =
+        document.getElementById("songs");
+
+      container.innerHTML = "";
+
+      songs.forEach((song, index) => {
+
+        const number = index + 1;
+
+        const isUnlocked =
+          unlocked.includes(number);
+
+        const card =
+          document.createElement("article");
+
+        card.className = "song";
+
+        if (isUnlocked) {
+
+          card.classList.add("unlocked");
+
+          if (number === newlyUnlocked) {
+            card.classList.add("unlock-animation");
+            card.classList.add("flash");
+          }
+
+          card.innerHTML = `
+            <div class="number">
+              TRACK ${String(number).padStart(2, "0")}
+            </div>
+
+            <div class="lock">🔓</div>
+
+            <div class="song-name">
+              ${song.name}
+            </div>
+
+            <div class="artist">
+              ${song.artist}
+            </div>
+
+            <a
+              class="spotify"
+              href="${song.spotify}"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              ▶ Escuchar en Spotify
+            </a>
+          `;
+
+        } else {
+
+          card.innerHTML = `
+            <div class="number">
+              TRACK ${String(number).padStart(2, "0")}
+            </div>
+
+            <div class="lock">🔒</div>
+
+            <div class="song-name">
+              Canción bloqueada
+            </div>
+
+            <div class="locked-text">
+              Escanea su código QR
+            </div>
+          `;
+        }
+
+        container.appendChild(card);
+      });
+
+
+      updateProgress();
+    }
+
+
+    function updateProgress() {
+
+      const total = songs.length;
+
+      const amount = unlocked.length;
+
+      const percentage =
+        total === 0
+          ? 0
+          : (amount / total) * 100;
+
+      document.getElementById("progressText").textContent =
+        amount + " de " + total +
+        " canciones desbloqueadas";
+
+      document.getElementById("progressFill").style.width =
+        percentage + "%";
+    }
+
+
+    /*
+      ==========================================
+      DETECTAR EL QR
+      ==========================================
+
+      Cada QR tendrá una dirección como:
+
+      ?track=4
+
+      Entonces la página sabe que
+      debe desbloquear la canción 4.
+    */
+
+    const params =
+      new URLSearchParams(window.location.search);
+
+    const track =
+      Number(params.get("track"));
+
+
+    renderSongs();
+
+
+    if (
+      Number.isInteger(track) &&
+      track >= 1 &&
+      track <= songs.length
+    ) {
+
+      unlockSong(track);
+
+    }
+
+  </script>
+
+</body>
+</html>
